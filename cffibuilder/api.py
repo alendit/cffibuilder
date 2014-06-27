@@ -2,6 +2,10 @@ import types
 from .lock import allocate_lock
 from .error import CDefError
 from .typeresolver import TypeResolver
+import sys
+
+if sys.version_info > (3,):
+    basestring = str
 
 
 class FFI(object):
