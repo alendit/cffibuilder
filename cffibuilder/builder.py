@@ -387,28 +387,32 @@ class FFILibraryMeta(type):
         type(library)._cffi_dir.append(name)
 
 
-class FFILibrary(object):
-    __metaclass__ = FFILibraryMeta
+def ffi_library_init(self):
+    # Build FFILibrary instance and call _cffi_setup().
+    # this will set up some fields like '_cffi_types', and only then
+    # it will invoke the chained list of functions that will really
+    # build (notably) the constant objects, as <cdata> if they are
+    # pointers, and store them as attributes on the 'library' object.
+    super(FFILibrary, self).__init__()
+    if _libmodule._cffi_setup(FFILibrary._ctypes_ordered,
+                              ffiplatform.VerificationError,
+                              self):
+        import warnings
+        warnings.warn("reimporting %r might overwrite older definitions"
+                      % (_libmodule.__name__))
+    # finally, call the loaded_cpy_xxx() functions.  This will perform
+    # the final adjustments, like copying the Python->C wrapper
+    # functions from the module to the 'library' object, and setting
+    # up the FFILibrary class with properties for the global C variables.
+    with ffi._lock:
+        FFILibrary._load('loaded', library=self)
 
-    def __init__(self):
-        # Build FFILibrary instance and call _cffi_setup().
-        # this will set up some fields like '_cffi_types', and only then
-        # it will invoke the chained list of functions that will really
-        # build (notably) the constant objects, as <cdata> if they are
-        # pointers, and store them as attributes on the 'library' object.
-        super(FFILibrary, self).__init__()
-        if _libmodule._cffi_setup(FFILibrary._ctypes_ordered,
-                                  ffiplatform.VerificationError,
-                                  self):
-            import warnings
-            warnings.warn("reimporting %r might overwrite older definitions"
-                          % (_libmodule.__name__))
-        # finally, call the loaded_cpy_xxx() functions.  This will perform
-        # the final adjustments, like copying the Python->C wrapper
-        # functions from the module to the 'library' object, and setting
-        # up the FFILibrary class with properties for the global C variables.
-        with ffi._lock:
-            FFILibrary._load('loaded', library=self)
+
+FFILibrary = FFILibraryMeta(
+    str('FFILibrary'),
+    (),
+    {'__init__': ffi_library_init}
+)
 
 
 lib = FFILibrary()
